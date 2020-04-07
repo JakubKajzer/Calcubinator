@@ -1,5 +1,6 @@
 #include <Adafruit_MCP23017.h>
 #include <Wire.h>
+#include <TimerOne.h>
 
 
 #define SDI 12
@@ -16,22 +17,27 @@
 
 #define BUTTON A3
 
-bool bytes[16];
+volatile bool bytes[16];
 Adafruit_MCP23017 mcp;
 
-String temp;
-int stateMachine=0;
-bool prevBtnState;
-int btnState;
+volatile int stateMachine=0;
+volatile bool prevBtnState;
+volatile int btnState;
 
-long long timer=0;
-short digits[6];
-unsigned int value;
+volatile short digits[6];
+volatile unsigned int value;
+
+volatile short digitPosition =0;
+
+volatile bool busy=false;
 
 void setup() 
 {
   
   Serial.begin(115200);
+
+  Timer1.initialize(2000);
+  Timer1.attachInterrupt(updateDisplay);
 
   //MCP23017 INIT////////////////////////////////////////////////////
   mcp.begin(8);
@@ -65,11 +71,12 @@ void setup()
 
 void loop() 
 {
+  calculate();
+}
 
-  
-  if(millis()-timer >200)
-  {
-      btnState = digitalRead(BUTTON);
+void calculate()
+{
+		btnState = digitalRead(BUTTON);
       if(!btnState && prevBtnState)
       {
         prevBtnState = false;
@@ -79,41 +86,43 @@ void loop()
       {
         prevBtnState = true;
       }
-      timer=millis();
-  }
 
-  value=obtainBinValue();
-  digits[0]=(value)/100000;
-  digits[1]=(value%100000)/10000;
-  digits[2]=(value%10000)/1000;
-  digits[3]=(value%1000)/100;
-  digits[4]=(value%100)/10;
-  digits[5]=value%10;
+	updateSwitches();
+   noInterrupts();
+      value=obtainBinValue();
+      digits[1]=(value%100000)/10000;
+  	  digits[2]=(value%10000)/1000;
+  	  digits[3]=(value%1000)/100;
+  	  digits[4]=(value%100)/10;
+  	  digits[5]=value%10;
 
-  for(int i=0;i<6;i++)
-  {
-    Serial.print(digits[i]);
-    Serial.print(" ");
-  }
-  Serial.println();
+ 	  if(digits[1]+digits[2]+digits[3]+digits[4]==0) digits[4]=100;
+      if(digits[1]+digits[2]+digits[3]==0) digits[3]=100;
+      if(digits[1]+digits[2]==0) digits[2]=100;
+  	  if(digits[1]==0) digits[1]=100;
+     interrupts();
+}
+
+void updateDisplay()
+{
+	if(!busy)
+	{
+		switch (digitPosition) 
+		{
+		    case 1:
+		      printNumbers(100,digits[3],1,0);
+		      break;
+		    case 2:
+		      printNumbers(digits[1],digits[4],2,0);
+		      break;
+		    case 3:
+		      printNumbers(digits[2],digits[5],3,0);
+		      break;
+		}
+		
+		if(++digitPosition == 4) digitPosition = 1;
+	}
   
-  printNumbers(digits[0],digits[3],1,0);
-  delay(5);
-  printNumbers(digits[1],digits[4],2,0);
-  delay(5);
-  printNumbers(digits[2],digits[5],3,0);
-  updateSwitches();
-
-
-
-  
- /* Serial.println(obtainBinValue());
-  for(int i=15;i>=0;i--)
-  {
-    Serial.print(bytes[i]);
-  }
-  Serial.println();
-  */
   
   
 }
@@ -248,6 +257,15 @@ void printNumbers(int left, int right,int pos, bool dot)
         sdiData1[2]=true;
       break;
     }
+    case 100:
+    {
+      bool temp[8]={0,0,0,0,0,0,0,0};
+      for(int i = 0; i<8; i++)
+      {
+        sdiData1[i]=temp[i];
+      }
+      break;
+    }
   }
   switch(right)
   {
@@ -361,37 +379,47 @@ void printNumbers(int left, int right,int pos, bool dot)
         sdiData2[2]=true;
       break;
     }
+    case 100:
+    {
+      bool temp[8]={0,0,0,0,0,0,0,0};
+      for(int i = 0; i<8; i++)
+      {
+        sdiData2[i]=temp[i];
+      }
+      break;
+    }
   }
 
   switch(pos)
   {
     case 1:
     {
+    	digitalWrite(DIGIT3,LOW);
+    	digitalWrite(DIGIT6,LOW);
         digitalWrite(DIGIT1,HIGH); 
         digitalWrite(DIGIT2,LOW);
-        digitalWrite(DIGIT3,LOW);
         digitalWrite(DIGIT4,HIGH); 
         digitalWrite(DIGIT5,LOW);
-        digitalWrite(DIGIT6,LOW);
+        
         break;
     }
     case 2:
     {
         digitalWrite(DIGIT1,LOW); 
+        digitalWrite(DIGIT4,LOW);
         digitalWrite(DIGIT2,HIGH);
         digitalWrite(DIGIT3,LOW);
-        digitalWrite(DIGIT4,LOW); 
         digitalWrite(DIGIT5,HIGH);
         digitalWrite(DIGIT6,LOW);
         break;
     }
     case 3:
     {
+    	digitalWrite(DIGIT2,LOW);
+    	digitalWrite(DIGIT5,LOW);
         digitalWrite(DIGIT1,LOW); 
-        digitalWrite(DIGIT2,LOW);
         digitalWrite(DIGIT3,HIGH);
         digitalWrite(DIGIT4,LOW); 
-        digitalWrite(DIGIT5,LOW);
         digitalWrite(DIGIT6,HIGH);
         break;
     }
