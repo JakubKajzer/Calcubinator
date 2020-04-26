@@ -13,6 +13,6 @@ Device has one li-ion cell with USB charger. It has supervisors circuit for li-i
 After 5s device goes to low power mode. In this mode, it can last about month.
 ## TODO
 * Re-route one net on PCB to have interrupt on button
-* Maybe add more conversion
+* Maybe add more conversion modes
 * Make case for this device
 * Make it more low power
