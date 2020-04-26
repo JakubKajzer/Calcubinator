@@ -1,4 +1,4 @@
-# BIN_calc
+# Calcubinator
 ## Description
 A small device to calculate decimal and hexadecimal from binary.
 ### Input
