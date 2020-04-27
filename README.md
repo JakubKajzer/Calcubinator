@@ -1,4 +1,6 @@
 # Calcubinator
+|![](/Photos/bin.jpg)|![](/Photos/hex.jpg)|
+|---|---|
 ## Description
 A small device to calculate decimal and hexadecimal from binary.
 ### Input
